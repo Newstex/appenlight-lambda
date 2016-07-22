@@ -20,6 +20,12 @@ var VALID_LEVELS = [
 	'EXCEPTION',
 	'FATAL',
 ];
+var LOG_LEVEL_PATTERNS = [
+	[ /info: /, 'INFO'],
+	[ /Error: /, 'ERROR'],
+	[ /(START|END|REPORT) /, 'DEBUG'],
+	[ /Process exited before completing request/, 'ERROR'],
+];
 
 exports.handler = function(event, context) {
 	///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -39,7 +45,7 @@ exports.handler = function(event, context) {
 	zlib.gunzip(zippedInput, function(e, buffer) {
 		if (e) {
 			console.log('Invalid Zipped data', e);
-			context.fail(e);
+			context.done(e);
 		}
 
 		var awslogsData;
@@ -47,7 +53,7 @@ exports.handler = function(event, context) {
 			awslogsData = JSON.parse(buffer.toString('ascii'));
 		} catch (e){
 			console.log('Invalid log data', buffer.toString('ascii'));
-			return context.fail('Failure parsing data', e);
+			return context.done('Failure parsing data', e);
 		}
 
 
@@ -58,13 +64,14 @@ exports.handler = function(event, context) {
 
 		var logBatch = [];
 		awslogsData.logEvents.forEach(function(val) {
-			var logLevel = val.message.split(' ')[0].replace(':', '').toUpperCase();
-			if(logLevel === 'START' || logLevel === 'REPORT' || logLevel === 'END'){
-				logLevel = 'DEBUG';
-			}
-			if(VALID_LEVELS.indexOf(logLevel) === -1){
-				logLevel = 'INFO';
-			}
+			var logLevel = 'INFO';
+			// Find the best matching log level
+			LOG_LEVEL_PATTERNS.forEach(function(pattern){
+				if(pattern[0].test(val.message)){
+					logLevel = pattern[1];
+				}
+			});
+
 			logBatch.push({
 				log_level: logLevel,
 				message: val.message,
@@ -89,7 +96,7 @@ exports.handler = function(event, context) {
 
 		req.on('error', function(e) {
 			console.error('Error submitting to AppEnlight', e);
-			context.fail(e);
+			context.done(e);
 		});
 
 		req.end(JSON.stringify(logBatch));
