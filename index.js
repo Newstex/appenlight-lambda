@@ -21,6 +21,7 @@ var VALID_LEVELS = [
 	'FATAL',
 ];
 var LOG_LEVEL_PATTERNS = [
+	[ /debug: /, 'DEBUG'],
 	[ /info: /, 'INFO'],
 	[ /Error: /, 'ERROR'],
 	[ /(START|END|REPORT) /, 'DEBUG'],
